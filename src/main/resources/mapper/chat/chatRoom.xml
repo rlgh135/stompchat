@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.t1.tripfysub.mapper.chat.ChatRoomMapper">
+	<insert id="createRoom">
+		insert into chatroom(room_id, roomname, masterid) values(#{roomId}, #{roomname}, #{masterid});
+	</insert>
+	<select id="getRooms">
+		select * from chatroom where masterid = #{masterid}
+	</select>
+	<select id="getRoom">
+		select * from chatroom where room_id = #{roomId}
+	</select>
+	<select id="getRoomIdsByUserId">
+		select room_id from chatroom_user where userid = #{userid}
+	</select>
+	<delete id="deleteAllRooms">
+		delete from chatroom where masterid = #{masterid}
+	</delete>
+	<delete id="deleteRoom">
+		delete from chatroom where roomnum = #{roomnum}
+	</delete>
+	<insert id="invite">
+		insert into chatroom_user values(#{roomId}, #{userid}, 0)
+	</insert>
+</mapper>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <style>
+            #hidden-body {
+                border: 1px solid black;
+            }
+            .pushed {
+                display: none;
+            }
+            .hidden {
+                display: none;
+            }
+            .rczone {
+                }
+            #left-room-zone {
+                border: 1px solid blue;
+                background-color: beige;
+            }
+            #right-msg-zone {
+                border: 1px solid red;
+                background-color: aquamarine;
+            }
+            #makeRoomWrap {
+                border: 1px solid green;
+                background-color: blueviolet;
+                z-index: 2;
+            }
+            #chat-circle {
+                position: fixed;
+                border-radius: 50%;
+                cursor: pointer;
+                background-color: aliceblue;
+                width: 100px;
+                height: 100px;
+                bottom: 5vh;
+                right: 5vw;
+            }
+            #hidden-body {
+                position: fixed;
+                width: 400px;
+                height: 700px;
+                bottom: 5vh;
+                right: 5vw;
+            }
+
+            /*채팅방과 리스트*/
+            #msg-body-list, #room-body-list{
+                display: flex;
+                flex-direction: column-reverse;
+            }
+        </style>
+    </head>
+    <body>
+       
+
+        <div id="hidden-body" class="hidden">
+            <div id="makeRoomWrap" class="pushed rwrap">
+                <form th:action="@{/chat/room}" method="post" name="croomform">
+                    <div>
+                        <input type="text" name="roomname" id="rn">
+                        <input type="hidden" name="masterid" value="apple">
+                        <input type="button" value="개설" id="mangle">
+                    </div>
+                    <div id="in-one" class="badge-list">
+                        <ul id="in-one-list">
+                            <li class="choiced pflist" data-usid="apple">사과</li>
+                        </ul>
+                    </div>
+                    <div id="out-one" class="badge-list">
+                        <ul id="out-one-list">
+                            <li class="pflist" data-usid="banana">바나나</li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+            <div id="left-room-zone" class="rczone">
+                <div class="upper-chat-zone">
+                    <div>내 채팅</div>
+                    <div onclick="makeRoom('apple')">방만들기</div>
+                    <div onclick="togglechat()">닫기버튼</div>
+                </div>
+                <ul id="room-body-list">
+                    <li onclick="push('left', this)" data-roomid="roomid">
+                        <div>프로필이미지</div>
+                        <div>채팅방이름(인원)</div>
+                        <div>채팅방이름</div>
+                        <div>새메시지갯수</div>
+                    </li>
+                </ul>
+            </div>
+            <div id="right-msg-zone" class="rczone pushed">
+                <div id="msg-btn-area" class="upper-chat-zone">
+                    <div onclick="push('right', this)">뒤</div>
+                    <div>
+                        <img src="" alt="roomimg">
+                    </div>
+                    <div id="showingroomname">
+                        방이름(인원수)
+                    </div>
+                </div>
+                <ul id="msg-body-list">
+                    <li class="tripfymsg other-side">
+                        <div class="ch-pf-badge" onclick="showpf()" data-userid="userid" data-sysname="thumbnail">
+                            <img src="/thumbnail" alt="">
+                        </div>
+                        <div class="ch-msg-view">
+                            <div class="ch-usr-name"></div>
+                            <div class="malpoongsun"></div>
+                        </div>
+                    </li>
+                    <li class="tripfymsg my-side"></li>
+                </ul>
+                <div class="grayback hidden" id="imo-area-wrap"></div>
+                <div class="emlist hidden" id="imo-list">
+                    <ul id="emlist">
+                        <li class="clk-imo" data-sysname=""></li>
+                        <li class="clk-imo" data-sysname=""></li>
+                        <li class="clk-imo" data-sysname=""></li>
+                        <li class="clk-imo" data-sysname=""></li>
+                        <li class="clk-imo" data-sysname=""></li>
+                    </ul>
+                </div>
+                <div id="msg-send-area">
+                    <textarea name="contents" id="msgcont" cols="30" rows="10"></textarea>
+                    <div class="btn-show-emo">열기</div>
+                    <div id="btn-send-my-msg">
+                        전송
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="chat-circle" onclick="togglechat()">
+            열기
+            <div>알람</div>
+        </div>
+    </body>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        const circle = document.getElementById("chat-circle");
+        function togglechat() {
+            const cbody = document.getElementById("hidden-body");
+            cbody.classList.toggle("hidden");
+            openRoom();
+        }
+        function push(side, element) {
+            const leftmsgzone = document.getElementById("left-room-zone");
+            const rightmsgzone = document.getElementById("right-msg-zone");
+            if (side === "left") {
+                leftmsgzone.classList.toggle("pushed");
+                rightmsgzone.classList.toggle("pushed");
+                let roomId = element.getAttribute("data-roomid");
+                console.log(roomId);
+                openChat(roomId, 1);
+            } else if (side == "right") {
+                leftmsgzone.classList.toggle("pushed");
+                rightmsgzone.classList.toggle("pushed");
+                openRoom();
+            }
+        }
+        $('#mangle').click(function () {
+            var roomname = $('#rn').val(); // input 필드 값 가져오기
+            var masterid = $('[name="masterid"]').val(); // hidden 필드 값 가져오기
+            var parr = ['banana', 'mango']; // 문자열 배열 초기화
+
+            // 각 li 요소에서 데이터 가져와 parr 배열에 추가
+            /*
+        $('#out-one-list li').each(function(){
+            var usid = $(this).data('usid');
+            parr.push(usid);
+        });
+        */
+
+            // 데이터 객체 생성
+            var data = {
+                roomname: roomname,
+                masterid: masterid,
+                parr: parr
+            };
+
+            // AJAX 요청 보내기
+            sendAjaxRequest(data);
+        });
+
+        function sendAjaxRequest(data) {
+            $.ajax({
+                type: "POST", url: "/chat/createroom", 
+                data: JSON.stringify(data),
+                contentType: "application/json",
+                success: function (datas) {
+                    console.log("Success: ", datas);
+                    openRoom();
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error:", error);
+                }
+            });
+        }
+
+        function makeRoom(params) {
+            $("#makeRoomWrap").toggleClass("pushed");
+        }
+        
+        function openRoom() {
+            let parentul = document.getElementById("room-body-list");
+            $.ajax({
+                url: "/chat/rooms",
+                type: "GET",
+
+                success: function (datas) {
+                    if (datas == null || !datas) {
+                        parentul.innerHTML="";
+                        console.log("채팅방업승ㅁ");
+                    } else {
+                        parentul.innerHTML="";
+                        console.log(datas);
+                        for (let i in datas.rooms) {
+                            var li = document.createElement("li");
+
+                            // li 엘리먼트에 속성 추가
+                            li.setAttribute("onclick", "push('left', this)");
+                            li.setAttribute("data-roomid", datas.rooms[i].roomId);
+
+                            // div 엘리먼트 생성 및 내용 설정
+                            var div1 = document.createElement("div");
+                            div1.textContent = "프로필이미지";
+                            var div2 = document.createElement("div");
+                            div2.textContent = datas.rooms[i].roomname;
+                            var div3 = document.createElement("div");
+                            div3.textContent = "새메시지갯수";
+
+                            // div 엘리먼트를 li 엘리먼트에 자식 노드로 추가
+                            li.appendChild(div1);
+                            li.appendChild(div2);
+                            li.appendChild(div3);
+
+                            console.log(li);
+                            parentul.appendChild(li);
+                        }
+                    }
+                },
+
+                error: function(){
+                    console("openRoom() 통신에러");
+                }
+            });
+        }
+
+        function openChat(roomId, page) {
+            let parentChatul = document.getElementById("msg-body-list");
+
+            $.ajax({
+                url: "/chat/room?roomId="+roomId+"&page="+page,
+                method: "GET",
+
+                success:function(datas){
+                    console.log(datas);
+                    parentChatul.innerHTML="";
+                    if(datas==null||!datas){
+                        parentChatul.innerHTML="";
+                        console.log("채팅내역없음");
+
+                        openConnection(datas.room);
+                    } else {
+                        for (let i in datas.messagelist) {
+                            
+                            var li = document.createElement('li');
+                            if (datas.messagelist[i].userid==="apple") {
+                                console.log("here");
+                                li.className = 'tripfymsg my-side';
+                            } else{
+                                console.log("there");
+                                li.className = 'tripfymsg other-side';
+
+                            }
+                            
+                            var divBadge = document.createElement('div');
+                            divBadge.className = 'ch-pf-badge';
+                            divBadge.setAttribute('onclick', 'showpf()');
+                            divBadge.setAttribute('data-userid', 'userid');
+                            divBadge.setAttribute('data-sysname', 'thumbnail');
+
+                            
+                            var img = document.createElement('img');
+                            img.src = '/thumbnail';
+                            img.alt = '';
+
+                            
+                            divBadge.appendChild(img);
+                            
+                            var divMsgView = document.createElement('div');
+                            divMsgView.className = 'ch-msg-view';
+
+                            
+                            var divUsrName = document.createElement('div');
+                            divUsrName.className = 'ch-usr-name';
+                            divUsrName.textContent = datas.messagelist[i].userid;
+
+                            
+                            var divMalpoongsun = document.createElement('div');
+                            if (datas.messagelist[i].userid==="apple") {
+                                divMalpoongsun.className = 'malpoongsun myside';
+                            } else{
+                                divMalpoongsun.className = 'malpoongsun otherside';
+                            }
+                            divMalpoongsun.textContent = datas.messagelist[i].message;
+
+                            divMsgView.appendChild(divMalpoongsun);
+                            divMsgView.appendChild(divUsrName);
+                            
+                            
+                            if (datas.messagelist[i].userid==="apple") {
+                                li.appendChild(divMsgView);
+                                li.appendChild(divBadge);
+                            } else{
+                                li.appendChild(divBadge);
+                                li.appendChild(divMsgView);
+                            }
+
+                            parentChatul.appendChild(li);
+                        }
+
+                        openConnection(datas.room);
+                    }
+
+                },
+
+                error:function(){
+                    console.log("openChat() 통신에러");
+                }
+            });
+        }
+        </script>
+    <script>
+        //chat 송수신부
+        function openConnection(room) {
+            let differ = 0;
+
+            var roomId = room.roomId;
+            var username = "apple";
+
+            console.log(room.roomname + ", " + room.roomId + ", " + username);
+
+            var sockJs = new SockJS("/stomp/chat");
+            //1. SockJS를 내부에 들고있는 stomp를 내어줌
+            var stomp = Stomp.over(sockJs);
+
+            //2. connection이 맺어지면 실행
+            stomp.connect({}, function (){
+                console.log("STOMP Connection")
+                //4. subscribe(path, callback)으로 메세지를 받을 수 있음
+                stomp.subscribe("/sub/chat/room/"+roomId, function (chat) {
+                    
+                    var content = JSON.parse(chat.body);
+                    let chatul = document.getElementById("msg-body-list");
+                    var message = content.message;
+                    
+                    var userid = content.userid;
+
+                    //세션아이디
+                    var username = "apple";
+
+                    var li = document.createElement('li');
+                    if (userid===username) {
+                        li.className = 'tripfymsg my-side';
+                    } else{
+                        li.className = 'tripfymsg other-side';
+
+                    }
+                    
+                    var divBadge = document.createElement('div');
+                    divBadge.className = 'ch-pf-badge';
+                    divBadge.setAttribute('onclick', 'showpf("'+content.userid+'")');
+                    divBadge.setAttribute('data-userid', content.userid);
+                    divBadge.setAttribute('data-sysname', 'thumbnail');
+
+                    
+                    var img = document.createElement('img');
+                    img.src = '/thumbnail';
+                    img.alt = '';
+
+                    
+                    divBadge.appendChild(img);
+                    
+                    var divMsgView = document.createElement('div');
+                    divMsgView.className = 'ch-msg-view';
+
+                    
+                    var divUsrName = document.createElement('div');
+                    divUsrName.className = 'ch-usr-name';
+                    divUsrName.textContent = content.userid;
+
+                    
+                    var divMalpoongsun = document.createElement('div');
+                    if (userid===username) {
+                        divMalpoongsun.className = 'malpoongsun myside';
+                    } else{
+                        divMalpoongsun.className = 'malpoongsun otherside';
+                    }
+                    divMalpoongsun.textContent = content.message;
+
+                    divMsgView.appendChild(divMalpoongsun);
+                    divMsgView.appendChild(divUsrName);
+                    
+                    
+                    if (userid===username) {
+                        li.appendChild(divMsgView);
+                        li.appendChild(divBadge);
+                    } else{
+                        li.appendChild(divBadge);
+                        li.appendChild(divMsgView);
+                    }
+
+                    chatul.appendChild(li);
+                    differ++;
+                });
+
+                stomp.send('/pub/chat/enter', {}, JSON.stringify({roomId: roomId, userid: username}));
+            });
+
+            //3. send(path, header, message)로 메세지를 보낼 수 있음
+            
+            document.getElementById("btn-send-my-msg").addEventListener("click", function(e) {
+                var msg = document.getElementById("msgcont");
+
+                console.log(username + ":" + msg.value);
+                stomp.send('/pub/chat/message', {}, JSON.stringify({roomId: roomId, message: msg.value, userid: username}));
+                msg.value = '';
+            });
+        }
+    
+
+    </script>
+</html>

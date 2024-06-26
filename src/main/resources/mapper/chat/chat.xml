@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.t1.tripfysub.mapper.chat.ChatMapper">
+	<insert id="sendmsg">
+		insert into chat(room_id, message, em_sysname, userid) values(#{roomId}, #{message}, #{emSysname}, #{userid})
+	</insert>
+	<select id="getLog">
+		select * from chat where room_id=#{roomId} order by messagenum desc limit #{startrow}, 15
+	</select>
+	<delete id="deleteAllMsg">
+		delete from chat where room_id = #{roomId}
+	</delete>
+	<select id="getLastMessagenum">
+		select MAX(messagenum) from chat where room_id = #{roomId}
+	</select>
+	<update id="updateLastMessageInfo">
+		update chatroom_user set messagenum = #{messagenum} where room_id=#{roomId} and userid=#{userid}
+	</update>
+</mapper>
